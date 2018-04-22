@@ -1,0 +1,320 @@
+##############################
+#Importing required Libraries
+##############################
+import pandas as pd
+import sklearn as sk
+import numpy as np
+from sklearn import preprocessing
+
+##############################
+#Reading the data 
+##############################
+raw_data=pd.read_csv("Medical.csv")
+
+##############################################
+#Checking the Structure/Data types of variables
+##############################################
+raw_data.dtypes
+
+##############################################
+#Looking at the first few records
+##############################################
+raw_data.head()
+
+################################################################################
+#Splitting the ScheduledDay Column into 2 columns ScheduledDate and ScheduledTime
+################################################################################
+a=raw_data.copy()
+b=a.ScheduledDay
+b1=b.copy()
+c = b1.apply(lambda x: pd.Series(str(x).split('T')))
+d=c[1]
+e = d.apply(lambda x: pd.Series(str(x).split('Z')))
+list(e.columns.values)
+e.drop([1],axis=1,inplace=True)
+e.columns=['ScheduledDayTime']
+f=c[0]
+mycolumn=['ScheduledDayDate','X']
+c.columns=mycolumn
+f=c.copy()
+f=f.drop(['X'],axis=1)
+
+#Creating temporary columns
+e['tmp']=1
+f['tmp']=1
+
+##Joining 2 data frames e and f 
+dfnew=pd.concat([e, f], axis=1, join_axes=[e.index])
+a['tmp']=1
+
+##Adding the new dataframe to the data frame a 
+dfnew2=pd.concat([dfnew, a], axis=1, join_axes=[dfnew.index])
+
+z=a.AppointmentDay
+y = z.apply(lambda x: pd.Series(str(x).split('T')))
+x=y[1]
+w = x.apply(lambda x: pd.Series(str(x).split('Z')))
+w.drop([1],axis=1,inplace=True)
+w.columns=['AppointmentDayTime']
+u=y[0]
+mycolumn1=['AppointmentDayDate','X']
+y.columns=mycolumn1
+
+#Creating temporary columns
+w['tmp']=1
+y['tmp']=1
+dfnew3=pd.concat([w, y], axis=1, join_axes=[w.index])
+dfnew3=dfnew3.drop(['X'],axis=1) # Dropping column X
+dfnew4=pd.concat([dfnew3, dfnew2], axis=1, join_axes=[dfnew3.index])
+df = dfnew4.drop('tmp', axis=1)
+dfinal=df.drop('ScheduledDay', axis=1)
+dfinal2=dfinal.drop('AppointmentDay', axis=1)
+
+########################################################
+#Splitting date and time 
+#######################################################
+s=dfinal2.AppointmentDayTime
+t=s.apply(lambda x: pd.Series(str(x).split(':')))
+mycolumn2=['AppointmentDayHour','AppointmentDayMinute','AppointmentDaySec']
+t.columns=mycolumn2
+sdate=dfinal2.AppointmentDayDate
+sdate2=sdate.apply(lambda x: pd.Series(str(x).split('-')))
+mycolumn3=['AppointmentDayYear','AppointmentDayMonth','AppointmentDayDate']
+sdate2.columns=mycolumn3
+sdt=dfinal2.ScheduledDayTime
+a1=sdt.apply(lambda x: pd.Series(str(x).split(':')))
+mycolumn4=['ScheduledDayHour','ScheduledDayMinute','ScheduledDaySec']
+a1.columns=mycolumn4
+b1=dfinal2.ScheduledDayDate
+sdaydate=b1.apply(lambda x: pd.Series(str(x).split('-')))
+mycolumn5=['ScheduledDayYear','ScheduledDayMonth','ScheduledDayDate']
+sdaydate.columns=mycolumn5
+sdaydate['tmp']=1
+a1['tmp']=1
+t['tmp']=1
+sdate2['tmp']=1
+dfnew6=pd.concat([a1, sdaydate], axis=1, join_axes=[a1.index])
+dfnew7=pd.concat([t, sdate2], axis=1, join_axes=[t.index])
+dfnew8=pd.concat([dfnew7, dfnew6], axis=1, join_axes=[dfnew7.index])
+dfinal2['tmp']=1
+dfinal3=pd.concat([dfnew8, dfinal2], axis=1, join_axes=[dfnew8.index])
+dfinal3=dfinal3.drop('tmp', axis=1)
+dff=dfinal3.copy()
+dff=dff.rename(columns={'No-show': 'Noshow'})
+
+###########################################################
+#Understanding the data types in dff 
+##########################################################
+dff.dtypes
+
+######################################################################
+#Converting the data types  to respective numeric and categorical data
+######################################################################
+dff.AppointmentDayHour=dff.AppointmentDayHour.astype('int64')
+dff.AppointmentDayMinute=dff.AppointmentDayMinute.astype('int64')
+dff.AppointmentDaySec=dff.AppointmentDaySec.astype('int64')
+dff.AppointmentDayYear=dff.AppointmentDayYear.astype('int64')
+dff.AppointmentDayMonth=dff.AppointmentDayMonth.astype('int64')
+dff.ScheduledDayHour=dff.ScheduledDayHour.astype('int64')
+dff.ScheduledDayMinute=dff.ScheduledDayMinute.astype('int64')
+dff.ScheduledDaySec=dff.ScheduledDaySec.astype('int64')
+dff.ScheduledDayYear=dff.ScheduledDayYear.astype('int64')
+dff.ScheduledDayMonth=dff.ScheduledDayMonth.astype('int64')
+dff.PatientId=dff.PatientId.astype('int64')
+dff.Gender=dff.Gender.astype('category')
+dff.Neighbourhood=dff.Neighbourhood.astype('category')
+dff.Scholarship=dff.Scholarship.astype('category')
+dff.Hipertension=dff.Hipertension.astype('category')
+dff.Diabetes=dff.Diabetes.astype('category')
+dff.Alcoholism=dff.Alcoholism.astype('category')
+dff.Handcap=dff.Handcap.astype('category')
+dff.SMS_received=dff.SMS_received.astype('category')
+dff.Noshow=dff.Noshow.astype('category')
+######################################################
+#Checking for null values
+#####################################################
+dff.isnull().sum()
+
+#We see that there are no null values hence no need for imputation
+##############################################
+#Checking for unique values
+##############################################
+dff.Age.unique()
+#Dropping Age values which are negative and values above 100
+# Only keep records of patients where age is between 0-100
+dff = dff[(dff.Age > 0) & (dff.Age <= 100)]
+dff2_num_stand=dff.copy()
+Standardized_Age=preprocessing.scale(dff2_num_stand.Age)
+
+#Creating a new data frame with  Standardized Age in the data frame
+mycolumnnew=['StandardizedAge']
+Standardized_Age=pd.DataFrame(Standardized_Age)
+Standardized_Age.columns=mycolumnnew
+Standardized_Age['tmp']=1
+dff2_num_stand['tmp']=1
+dfinal_Standardized=pd.concat([dff2_num_stand, Standardized_Age], axis=1, join_axes=[dff2_num_stand.index])
+
+#Dropping tmp column
+dfinal_Standardized=dfinal_Standardized.drop('tmp', axis=1)
+
+#Creating a new data frame with only Standardized Age and dropping Age column
+d1=dfinal_Standardized.copy()
+d1=d1.drop('Age',axis=1)
+
+#Dropping AppointmentDayDate.1, ScheduledDayDate.1,PatientId, ApppointmentID, ScheduledDayTime from d1
+d1=d1.drop('AppointmentDayDate.1',axis=1)
+d1=d1.drop('ScheduledDayDate.1',axis=1)
+d1=d1.drop('PatientId',axis=1)
+d1=d1.drop('AppointmentID',axis=1)
+d1=d1.drop('ScheduledDayTime',axis=1)
+
+###################################################################
+#Correlation Plot
+###################################################################
+import matplotlib.pyplot as plt
+import seaborn as sns
+%matplotlib inline
+d1.corr()
+sns.heatmap(df.corr(),annot=True, linewidths = 2)
+plt.show()
+
+####################################################################
+Feature Selection/Importance
+####################################################################
+from sklearn import metrics
+from sklearn.ensemble import ExtraTreesClassifier
+# fit an Extra Trees model to the data
+model = ExtraTreesClassifier()
+model.fit(d1mod, d1mod.Noshow)
+# display the relative importance of each attribute
+print(model.feature_importances_)
+featureimp=model.feature_importances_
+
+
+plt.plot(model.feature_importances_)
+
+
+
+######################################################################
+#Model Building on the data d1
+######################################################################
+
+y=d1['Noshow']
+X=d1.loc[:, df.columns != 'Noshow']
+d1mod=d1.copy()
+
+# Dropping the AppointmentDayTime column
+X=X.drop('AppointmentDayTime',axis=1)
+X1=X.copy()
+X1=X1.drop('Neighbourhood',axis=1)
+X1=d1mod.loc[:, df.columns != 'Noshow']
+y1=d1mod['Noshow']
+
+#Train Test Split
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X1, y1,test_size=0.4,random_state=0)
+
+##################################################
+#Decision Trees
+##################################################
+from sklearn import tree
+# Creating object 
+model = tree.DecisionTreeClassifier(criterion='gini')   
+# Training the model 
+model.fit(X_train, y_train)
+model.score(X_train, y_train)
+#Predicting the  Output
+predicted= model.predict(X_test)
+
+#  Metrics
+from sklearn.metrics import accuracy_score
+accuracy_score(y_test,predicted)
+
+################################################
+#Random Forest
+################################################
+# Library
+from sklearn.ensemble import RandomForestClassifier
+
+# Creating object
+model = RandomForestClassifier()
+# Training the model
+model.fit(X_train, y_train)
+model.score(X_train, y_train)
+
+#Predicting the Output
+predicted= model.predict(X_test)
+#  Metrics
+from sklearn.metrics import accuracy_score
+accuracy_score(y_test,predicted)
+
+##################################################
+#Logistic Regresssion
+#################################################
+# Library
+from sklearn.linear_model import LogisticRegression
+
+# Creating the object
+model = LogisticRegression()
+# Training  the model 
+model.fit(X_train, y_train)
+model.score(X_train, y_train)
+
+#Predicting the  Output
+predicted= model.predict(X_test)
+# Model Metrics
+from sklearn.metrics import accuracy_score
+accuracy_score(y_test,predicted)
+
+####################################################
+#Naive Bayes
+####################################################
+#Library
+from sklearn.naive_bayes import GaussianNB
+# Creating object 
+model = GaussianNB() 
+# Training the model 
+model.fit(X_train, y_train)
+#Predicting the  Output
+predicted= model.predict(X_test)
+#  Metrics
+from sklearn.metrics import accuracy_score
+accuracy_score(y_test,predicted)
+
+#################################################
+#Support Vector Machines (SVM)
+################################################
+# Library
+from sklearn import svm
+# Creating object 
+model = svm.SVC() 
+# Training the model 
+model.fit(X_train, y_train)
+model.score(X_train, y_train)
+#Predicting the  Output
+predicted= model.predict(X_test)
+# Metrics
+from sklearn.metrics import accuracy_score
+accuracy_score(y_test,predicted)
+
+#####################################################
+#K Nearest Neighbours (KNN)
+#####################################################
+# Library
+from sklearn.neighbors import KNeighborsClassifier
+
+# Creating object  
+model=KNeighborsClassifier(n_neighbors=5) # default value for n_neighbors is 5
+# Training the model
+model.fit(X_train, y_train)
+#Predicting the Output
+predicted= model.predict(X_test)
+#  Metrics
+from sklearn.metrics import accuracy_score
+accuracy_score(y_test,predicted)
+
+###########################################################
+#Tabulating results from various Algorithms
+###########################################################
+
+pd.Series({"Decision Tree":"0.7195","KNN":"0.7706","Random Forest":"0.7940","Logistic":"0.7945","Naïve Bayes":"0.7971","SVM":"0.8018"})
